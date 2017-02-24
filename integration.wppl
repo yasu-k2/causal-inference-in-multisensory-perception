@@ -1,0 +1,220 @@
+var visualStimulus = [-10, -5, 0, 5, 10];
+var auditoryStimulus = [-10, -5, 0, 5, 10];
+
+var closestValue = function(stimulus, s_old) {
+  var diff1 = Math.abs(stimulus[0] - s_old);
+  var diff2 = Math.abs(stimulus[1] - s_old);
+  var diff3 = Math.abs(stimulus[2] - s_old);
+  var diff4 = Math.abs(stimulus[3] - s_old);
+  var diff5 = Math.abs(stimulus[4] - s_old);
+  var s_new = (diff1 < diff2) ? stimulus[0] : ((diff2 < diff3) ? stimulus[1] : ((diff3 < diff4) ? stimulus[2] : ((diff4 < diff5) ? stimulus[3] : stimulus[4])));
+  return s_new
+}
+
+var causalStructure = function(p_common){
+    return bernoulli({p: p_common}) ? '1' : '2'
+};
+
+
+// integration 1
+var model1 = function() {
+  var stimulus = [-10, -5, 0, 5, 10];
+  var p_common = 0.28;
+  var mu_p = 0;
+  var sigma_p = 12.3;
+  var sigma_v = 2.14;
+  var sigma_a = 9.2;
+  var sigma_p_2 = sigma_p * sigma_p;
+  var sigma_v_2 = sigma_v * sigma_v;
+  var sigma_a_2 = sigma_a * sigma_a;
+
+  var cause = causalStructure(p_common);
+
+  var _s_v = gaussian({mu: 0, sigma: sigma_p});
+  var _s_a = (cause == '1') ? _s_v : gaussian({mu: 0, sigma: sigma_p});
+  var s_v = closestValue(stimulus, _s_v);
+  var s_a = closestValue(stimulus, _s_a);
+
+  var x_v = gaussian({mu: s_v, sigma: sigma_v});
+  var x_a = gaussian({mu: s_a, sigma: sigma_a});
+
+  var p_xvxa_common = Math.exp(-(((x_v-x_a)*(x_v-x_a)*sigma_p_2+(x_v-mu_p)*(x_v-mu_p)*sigma_a_2+(x_a-mu_p)*(x_a-mu_p)*sigma_v_2)/(sigma_v_2*sigma_a_2+sigma_v_2+sigma_p_2+sigma_a_2*sigma_p_2))/2) / (2*Math.PI*Math.sqrt(sigma_v_2*sigma_a_2+sigma_v_2*sigma_p_2+sigma_a_2*sigma_p_2));
+  var p_xvxa_different = Math.exp(-((x_v-mu_p)*(x_v-mu_p)/(sigma_v_2+sigma_p_2)+(x_a-mu_p)*(x_a-mu_p)/(sigma_a_2+sigma_p_2))/2) / (2*Math.PI*Math.sqrt((sigma_v_2+sigma_p_2)*(sigma_a_2+sigma_p_2)));
+  var p_common_xvxa = p_xvxa_common * p_common / (p_xvxa_common * p_common + p_xvxa_different * (1 - p_common));
+
+  var cause_hat = (p_common_xvxa > 1/2) ? '1' : '2';
+
+  var s_v_different = (x_v / sigma_v_2 + mu_p / sigma_p_2) / (1 / sigma_v_2 + 1 / sigma_p_2);
+  var s_a_different = (x_a / sigma_a_2 + mu_p / sigma_p_2) / (1 / sigma_a_2 + 1 / sigma_p_2);
+  var s_v_common = (x_v / sigma_v_2 + x_a / sigma_a_2 + mu_p / sigma_p_2) / (1 / sigma_v_2 + 1 / sigma_a_2 + 1 / sigma_p_2);
+  var s_a_common = s_v_common;
+  var _s_v_hat = p_common_xvxa * s_v_common + (1 - p_common_xvxa) * s_v_different;
+  var _s_a_hat = p_common_xvxa * s_a_common + (1 - p_common_xvxa) * s_a_different;
+
+  var s_v_hat = closestValue(stimulus, _s_v_hat);
+  var s_a_hat = closestValue(stimulus, _s_a_hat);
+
+  condition(s_v == 0 && s_a == 0)
+
+  return s_a_hat
+}
+var dist1 = Infer({method: 'MCMC', samples: 10000}, model1);
+viz.auto(dist1);
+viz.table(dist1);
+
+
+// integration 2
+var model2 = function() {
+  var stimulus = [-10, -5, 0, 5, 10];
+  var p_common = 0.28;
+  var mu_p = 0;
+  var sigma_p = 12.3;
+  var sigma_v = 2.14;
+  var sigma_a = 9.2;
+  var sigma_p_2 = sigma_p * sigma_p;
+  var sigma_v_2 = sigma_v * sigma_v;
+  var sigma_a_2 = sigma_a * sigma_a;
+
+  var cause = causalStructure(p_common);
+
+  var _s_v = gaussian({mu: 0, sigma: sigma_p});
+  var _s_a = (cause == '1') ? _s_v : gaussian({mu: 0, sigma: sigma_p});
+  var s_v = closestValue(stimulus, _s_v);
+  var s_a = closestValue(stimulus, _s_a);
+
+  var x_v = gaussian({mu: s_v, sigma: sigma_v});
+  var x_a = gaussian({mu: s_a, sigma: sigma_a});
+
+  var p_xvxa_common = Math.exp(-(((x_v-x_a)*(x_v-x_a)*sigma_p_2+(x_v-mu_p)*(x_v-mu_p)*sigma_a_2+(x_a-mu_p)*(x_a-mu_p)*sigma_v_2)/(sigma_v_2*sigma_a_2+sigma_v_2+sigma_p_2+sigma_a_2*sigma_p_2))/2) / (2*Math.PI*Math.sqrt(sigma_v_2*sigma_a_2+sigma_v_2*sigma_p_2+sigma_a_2*sigma_p_2));
+  var p_xvxa_different = Math.exp(-((x_v-mu_p)*(x_v-mu_p)/(sigma_v_2+sigma_p_2)+(x_a-mu_p)*(x_a-mu_p)/(sigma_a_2+sigma_p_2))/2) / (2*Math.PI*Math.sqrt((sigma_v_2+sigma_p_2)*(sigma_a_2+sigma_p_2)));
+  var p_common_xvxa = p_xvxa_common * p_common / (p_xvxa_common * p_common + p_xvxa_different * (1 - p_common));
+
+  var cause_hat = (p_common_xvxa > 1/2) ? '1' : '2';
+
+  var s_v_different = (x_v / sigma_v_2 + mu_p / sigma_p_2) / (1 / sigma_v_2 + 1 / sigma_p_2);
+  var s_a_different = (x_a / sigma_a_2 + mu_p / sigma_p_2) / (1 / sigma_a_2 + 1 / sigma_p_2);
+  var s_v_common = (x_v / sigma_v_2 + x_a / sigma_a_2 + mu_p / sigma_p_2) / (1 / sigma_v_2 + 1 / sigma_a_2 + 1 / sigma_p_2);
+  var s_a_common = s_v_common;
+  var _s_v_hat = p_common_xvxa * s_v_common + (1 - p_common_xvxa) * s_v_different;
+  var _s_a_hat = p_common_xvxa * s_a_common + (1 - p_common_xvxa) * s_a_different;
+
+  var s_v_hat = closestValue(stimulus, _s_v_hat);
+  var s_a_hat = closestValue(stimulus, _s_a_hat);
+
+  var spatialDisparity = Math.abs(s_v - s_a);
+
+  condition(spatialDisparity == 5)
+
+  var auditoryBias = (s_a_hat - s_a) / (s_v - s_a);
+
+  return auditoryBias
+}
+var dist2 = Infer({method: 'MCMC', samples: 500000}, model2);
+var exp = expectation(dist2);
+print("Average auditory bias: " + exp)
+
+
+// integration 3
+var model3 = function() {
+  var stimulus = [-10, -5, 0, 5, 10];
+  var p_common = 0.63;
+  var mu_p = 0;
+  var sigma_p = 12.3;
+  var sigma_motor = 2.5;
+  var sigma_v = 2.5;
+  var sigma_a = 7.6;
+  var sigma_p_2 = sigma_p * sigma_p;
+  var sigma_v_2 = sigma_v * sigma_v;
+  var sigma_a_2 = sigma_a * sigma_a;
+
+  var cause = causalStructure(p_common);
+
+  var _s_v = gaussian({mu: 0, sigma: sigma_p});
+  var _s_a = (cause == '1') ? _s_v : gaussian({mu: 0, sigma: sigma_p});
+  var s_v = closestValue(stimulus, _s_v);
+  var s_a = closestValue(stimulus, _s_a);
+
+  var x_v = gaussian({mu: s_v, sigma: sigma_v});
+  var x_a = gaussian({mu: s_a, sigma: sigma_a});
+
+  var p_xvxa_common = Math.exp(-(((x_v-x_a)*(x_v-x_a)*sigma_p_2+(x_v-mu_p)*(x_v-mu_p)*sigma_a_2+(x_a-mu_p)*(x_a-mu_p)*sigma_v_2)/(sigma_v_2*sigma_a_2+sigma_v_2+sigma_p_2+sigma_a_2*sigma_p_2))/2) / (2*Math.PI*Math.sqrt(sigma_v_2*sigma_a_2+sigma_v_2*sigma_p_2+sigma_a_2*sigma_p_2));
+  var p_xvxa_different = Math.exp(-((x_v-mu_p)*(x_v-mu_p)/(sigma_v_2+sigma_p_2)+(x_a-mu_p)*(x_a-mu_p)/(sigma_a_2+sigma_p_2))/2) / (2*Math.PI*Math.sqrt((sigma_v_2+sigma_p_2)*(sigma_a_2+sigma_p_2)));
+  var p_common_xvxa = p_xvxa_common * p_common / (p_xvxa_common * p_common + p_xvxa_different * (1 - p_common));
+
+  var cause_hat = (p_common_xvxa > 1/2) ? '1' : '2';
+
+  var s_v_different = (x_v / sigma_v_2 + mu_p / sigma_p_2) / (1 / sigma_v_2 + 1 / sigma_p_2);
+  var s_a_different = (x_a / sigma_a_2 + mu_p / sigma_p_2) / (1 / sigma_a_2 + 1 / sigma_p_2);
+  var s_v_common = (x_v / sigma_v_2 + x_a / sigma_a_2 + mu_p / sigma_p_2) / (1 / sigma_v_2 + 1 / sigma_a_2 + 1 / sigma_p_2);
+  var s_a_common = s_v_common;
+  var _s_v_hat = p_common_xvxa * s_v_common + (1 - p_common_xvxa) * s_v_different;
+  var _s_a_hat = p_common_xvxa * s_a_common + (1 - p_common_xvxa) * s_a_different;
+  var _s_v_hat_motor = gaussian({mu: _s_v_hat, sigma: sigma_motor});
+  var _s_a_hat_motor = gaussian({mu: _s_a_hat, sigma: sigma_motor});
+
+  var s_v_hat = closestValue(stimulus, _s_v_hat_motor);
+  var s_a_hat = closestValue(stimulus, _s_a_hat_motor);
+
+  var spatialDisparity = s_v - s_a;
+
+  condition(spatialDisparity == 15)
+
+  return cause_hat
+}
+var dist3 = Infer({method: 'MCMC', samples: 100000}, model3);
+var unity = Math.exp(dist3.score('1'));
+print("Report of unity: " + unity)
+
+
+// integration 4
+var model4 = function() {
+  var stimulus = [-10, -5, 0, 5, 10];
+  var p_common = 0.63;
+  var mu_p = 0;
+  var sigma_p = 12.3;
+  var sigma_motor = 2.5;
+  var sigma_v = 2.5;
+  var sigma_a = 7.6;
+  var sigma_p_2 = sigma_p * sigma_p;
+  var sigma_v_2 = sigma_v * sigma_v;
+  var sigma_a_2 = sigma_a * sigma_a;
+
+  var cause = causalStructure(p_common);
+
+  var _s_v = gaussian({mu: 0, sigma: sigma_p});
+  var _s_a = (cause == '1') ? _s_v : gaussian({mu: 0, sigma: sigma_p});
+  var s_v = closestValue(stimulus, _s_v);
+  var s_a = closestValue(stimulus, _s_a);
+
+  var x_v = gaussian({mu: s_v, sigma: sigma_v});
+  var x_a = gaussian({mu: s_a, sigma: sigma_a});
+
+  var p_xvxa_common = Math.exp(-(((x_v-x_a)*(x_v-x_a)*sigma_p_2+(x_v-mu_p)*(x_v-mu_p)*sigma_a_2+(x_a-mu_p)*(x_a-mu_p)*sigma_v_2)/(sigma_v_2*sigma_a_2+sigma_v_2+sigma_p_2+sigma_a_2*sigma_p_2))/2) / (2*Math.PI*Math.sqrt(sigma_v_2*sigma_a_2+sigma_v_2*sigma_p_2+sigma_a_2*sigma_p_2));
+  var p_xvxa_different = Math.exp(-((x_v-mu_p)*(x_v-mu_p)/(sigma_v_2+sigma_p_2)+(x_a-mu_p)*(x_a-mu_p)/(sigma_a_2+sigma_p_2))/2) / (2*Math.PI*Math.sqrt((sigma_v_2+sigma_p_2)*(sigma_a_2+sigma_p_2)));
+  var p_common_xvxa = p_xvxa_common * p_common / (p_xvxa_common * p_common + p_xvxa_different * (1 - p_common));
+
+  var cause_hat = (p_common_xvxa > 1/2) ? '1' : '2';
+
+  var s_v_different = (x_v / sigma_v_2 + mu_p / sigma_p_2) / (1 / sigma_v_2 + 1 / sigma_p_2);
+  var s_a_different = (x_a / sigma_a_2 + mu_p / sigma_p_2) / (1 / sigma_a_2 + 1 / sigma_p_2);
+  var s_v_common = (x_v / sigma_v_2 + x_a / sigma_a_2 + mu_p / sigma_p_2) / (1 / sigma_v_2 + 1 / sigma_a_2 + 1 / sigma_p_2);
+  var s_a_common = s_v_common;
+  var _s_v_hat = p_common_xvxa * s_v_common + (1 - p_common_xvxa) * s_v_different;
+  var _s_a_hat = p_common_xvxa * s_a_common + (1 - p_common_xvxa) * s_a_different;
+  var _s_v_hat_motor = gaussian({mu: _s_v_hat, sigma: sigma_motor});
+  var _s_a_hat_motor = gaussian({mu: _s_a_hat, sigma: sigma_motor});
+
+  var s_v_hat = closestValue(stimulus, _s_v_hat_motor);
+  var s_a_hat = closestValue(stimulus, _s_a_hat_motor);
+
+  var spatialDisparity = s_v - s_a;
+
+  condition(spatialDisparity == -10 && cause_hat == '2')
+
+  var auditoryBias = (s_a_hat - s_a) / (s_v - s_a);
+
+  return auditoryBias
+}
+var dist4 = Infer({method: 'MCMC', samples: 500000}, model4);
+var exp = expectation(dist4);
+print("Average auditory bias: " + exp)
